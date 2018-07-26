@@ -74,6 +74,11 @@ def JobProcessor(RO):
             # unsupported
             return "Error: Method [%s] is not supported." % method.upper()
 
+# machine stats
+@app.route('/stats',methods=["GET"])
+def stats():
+    return str({"all_jobs":jobCounter,"queued_jobs":len(FIFOQueue.queue)})
+
 # catch-all route
 @app.route('/<path:endpoint>', methods=["GET","POST","PUT","DELETE"])
 def catch_all(endpoint):
