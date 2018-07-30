@@ -1,4 +1,4 @@
-# Load Balancer: Port 'FIFO' -- 3436
+# Load Balancer Downstream API
 
 from flask import Flask,request
 from flask_cors import CORS
@@ -46,6 +46,12 @@ class RequestObject:
 def a404page():
     return '<div style="background-color: rgb(255, 255, 255); font-family: "Lucida Grande", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", "Lucida Sans Unicode", Helvetica, Arial, sans-serif; font-size: 0.9em; overflow-x: hidden; overflow-y: auto; margin: 0px !important; padding: 5px 20px 26px !important;padding: 20px;padding: 20px; color: rgb(34, 34, 34); font-size: 15px; font-family: "Roboto Condensed", Tauri, "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", AppleSDGothicNeo-Medium, "Segoe UI", "Malgun Gothic", Verdana, Tahoma, sans-serif; background-color: rgb(255, 255, 255); -webkit-font-smoothing: antialiased; background-position: initial initial; background-repeat: initial initial;"><p style="margin: 1em 0px; word-wrap: break-word;"><img src="http://ceres-ai.com:6765/static/404.jpg" alt="404" style="max-width: 100%;"></p></div>'
 
+def parameterize(JSON):
+    parameter_string = "?";
+    for key in JSON:
+        parameter_string+="%s=%s&" % (key,JSON[key])
+    return parameter_string[:-1]
+
 def JobProcessor(RO):
     global jobCounter
     if RO != None:
@@ -80,7 +86,7 @@ def stats():
     return str({"all_jobs":jobCounter,"queued_jobs":len(FIFOQueue.queue)})
 
 # catch-all route
-@app.route('/<path:endpoint>', methods=["GET","POST","PUT","DELETE"])
+@app.route('/<path:endpoint>', methods=["GET","POST","PUT","DELETE","PATCH"])
 def catch_all(endpoint):
     global FIFOQueue
     # handle request based on endpointMap
@@ -96,16 +102,22 @@ def catch_all(endpoint):
             call_data = request.get_json(force=True)
         except:
             call_data = {}
-        # encode as request object
+        if call_method.lower() == "patch":
+            # handle special patch case (disguised get with parameters)
+            parameter_string = parameterize(call_data)
+            call_route+=parameter_string
+            call_method = "GET"
+        # encode call as request object
         ro = RequestObject(
-            route=call_route,
-            method=call_method,
-            data=call_data
+        route=call_route,
+        method=call_method,
+        data=call_data
         )
         # Queue request object
         FIFOQueue.add(ro)
         # demand-based execution: process next job on queue
         return JobProcessor(FIFOQueue.next())
+
 
 if __name__ == "__main__":
     app.run(port=3436)
